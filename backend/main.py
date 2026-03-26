@@ -17,10 +17,13 @@ logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="OperationEMT")
 
-# CORS — allow all origins for MVP
+# CORS — explicit origins for browser WebSocket + fetch compatibility
+# allow_credentials=True requires explicit origins (wildcard + credentials is
+# a CORS spec violation that browsers reject). Use ALLOWED_ORIGINS env var in prod.
+_allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

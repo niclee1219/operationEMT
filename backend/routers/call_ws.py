@@ -27,6 +27,7 @@ async def call_audio_ws(websocket: WebSocket, call_id: str):
     await websocket.accept()
     logger.info("Caller connected: call_id=%s", call_id)
     operator_id = None
+    stream_started = False  # guard for unconditional close_stream in finally
 
     try:
         # First frame must be call_init JSON
@@ -50,6 +51,7 @@ async def call_audio_ws(websocket: WebSocket, call_id: str):
 
         # Start STT stream
         await _stt.start_stream(call_id, audio_mime, _pipeline.on_transcript_chunk)
+        stream_started = True
 
         # Stream audio chunks
         while True:
@@ -66,7 +68,8 @@ async def call_audio_ws(websocket: WebSocket, call_id: str):
         logger.error("Call WS error call_id=%s: %s", call_id, e)
     finally:
         # Cleanup
-        await _stt.close_stream(call_id)
+        if stream_started:
+            await _stt.close_stream(call_id)
         if _store is not None:
             try:
                 await _store.update_call(call_id, status="ended")

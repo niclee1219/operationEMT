@@ -27,6 +27,7 @@ class Pipeline:
         self._store = store
         self._broadcast = broadcast_fn
         self._smart_hold_tasks: dict[str, asyncio.Task] = {}
+        self._extraction_tasks: dict[str, asyncio.Task] = {}
 
     async def on_transcript_chunk(
         self, call_id: str, text: str, is_final: bool
@@ -42,12 +43,16 @@ class Pipeline:
             logger.warning("on_transcript_chunk: unknown call %s", call_id)
             return
 
+        ts = time.time()
+
         # Append to buffers
         await self._store.update_call(
             call_id,
             transcript_buffer=call_state.transcript_buffer + " " + text,
         )
-        call_state.recent_window.append((time.time(), text))
+        # call_state is the live object (CallStore returns references, not copies)
+        # so appending to recent_window directly mutates the stored deque safely
+        call_state.recent_window.append((ts, text))
 
         # Broadcast immediately (latency-critical)
         await self._broadcast(
@@ -56,13 +61,18 @@ class Pipeline:
                 "type": "transcript_delta",
                 "call_id": call_id,
                 "text": text,
-                "timestamp": time.time(),
+                "timestamp": ts,
             },
         )
 
         # Schedule extraction in background (does not block transcript broadcast)
         if is_final:
-            asyncio.create_task(self._trigger_extraction(call_id))
+            # Cancel any in-progress extraction (debounce — only keep the latest)
+            existing = self._extraction_tasks.pop(call_id, None)
+            if existing and not existing.done():
+                existing.cancel()
+            task = asyncio.create_task(self._trigger_extraction(call_id))
+            self._extraction_tasks[call_id] = task
 
     async def _trigger_extraction(self, call_id: str) -> None:
         """
@@ -105,6 +115,8 @@ class Pipeline:
             if result.get("condition") and "condition" not in call_state.operator_overrides:
                 update_kwargs["condition"] = result["condition"]
             if result.get("differentials"):
+                # Differentials bypass operator_overrides intentionally:
+                # operators cannot override AI-generated differential diagnoses in this MVP
                 update_kwargs["differentials"] = result["differentials"]
             if update_kwargs:
                 await self._store.update_call(call_id, **update_kwargs)
@@ -127,6 +139,9 @@ class Pipeline:
             )
         except Exception as e:
             logger.error("Extraction pipeline error for call %s: %s", call_id, e)
+        finally:
+            # Clean up the task reference once this extraction run is complete
+            self._extraction_tasks.pop(call_id, None)
 
     def start_smart_hold_loop(self, call_id: str) -> None:
         """Start the Smart Hold monitoring loop for a call."""

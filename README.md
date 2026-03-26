@@ -1,4 +1,11 @@
-# OperationEMT 🚑
+# OperationEMT 
+
+## ⚠️ Disclaimer & Project Context
+
+> [!IMPORTANT]  
+> **NOT FOR REAL EMERGENCIES.** > This software is a **Minimum Viable Product (MVP)** developed for academic and prototyping purposes only. It is **not** connected to any official Singapore Civil Defence Force (SCDF) systems or 995 emergency services. **Do not use this application in a life-threatening situation.**
+> ### 🎓 Academic Purpose
+> This project was developed as part of **DAO2703: Operations and Technology**.
 
 AI-powered Emergency Medical Services (EMS) Dispatch System.
 
@@ -87,3 +94,5 @@ pytest tests/
 3. **Automated Triage**: As the transcript evolves, Claude extracts patient details and assigns a PACS level.
 4. **Dashboard Update**: Dispatchers see the incoming call and triaged data immediately.
 5. **Smart Hold**: If the operator is busy, the Smart Hold system continues monitoring the transcript for any NEW deterioration symptoms or deterioration in PACS level, alerting the dispatcher if necessary.
+
+

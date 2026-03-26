@@ -63,14 +63,14 @@ class DeepgramSTTClient:
             from deepgram import DeepgramClient, LiveOptions, LiveTranscriptionEvents
 
             dg = DeepgramClient(api_key=self._api_key)
+            # For WebM/Opus (browser MediaRecorder), Deepgram auto-detects
+            # the container — do not specify encoding for containerised formats.
             options = LiveOptions(
                 model="nova-2",
-                encoding="webm-opus",
-                sample_rate=16000,
                 interim_results=True,
                 language="en",
             )
-            connection = dg.listen.websocket.v("1")
+            connection = dg.listen.live.v("1")
 
             def on_message(self_inner, result, **kwargs):
                 """Called by Deepgram SDK on transcript event (sync)."""
@@ -113,6 +113,7 @@ class DeepgramSTTClient:
             return
         try:
             connection.finish()
-            logger.info("Deepgram stream closed for call %s", call_id)
         except Exception as e:
-            logger.error("STT close_stream error for call %s: %s", call_id, e)
+            # Swallow — connection may be half-initialised if start() failed
+            logger.debug("STT close_stream (ignored): %s", e)
+        logger.info("Deepgram stream closed for call %s", call_id)

@@ -5,6 +5,7 @@ from collections import defaultdict
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from backend.state import CallStore
+from backend.routers import call_ws as call_ws_module
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -107,6 +108,11 @@ async def dashboard_ws(websocket: WebSocket, operator_id: str):
                     "call_id": call_id,
                     "status": "active",
                 })
+
+            elif msg_type == "end_call":
+                # Operator-initiated end: close the caller's WebSocket.
+                # call_ws.finally will handle cleanup and broadcast call_ended.
+                await call_ws_module.force_end_call(call_id)
 
     except WebSocketDisconnect:
         pass

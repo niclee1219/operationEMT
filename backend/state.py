@@ -17,6 +17,9 @@ class CallState:
     pacs: str | None = None
     confirmed: bool = False
     operator_overrides: set = field(default_factory=set)  # fields manually edited
+    allergies: list = field(default_factory=list)
+    past_conditions: list = field(default_factory=list)
+    additional_notes: str | None = None
     created_at: float = field(default_factory=time.time)
 
 

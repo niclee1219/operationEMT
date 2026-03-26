@@ -15,7 +15,8 @@ export default function useWebSocket(onMessage) {
   const connect = useCallback(() => {
     if (unmounted.current) return
     setConnectionStatus('connecting')
-    const ws = new WebSocket(`ws://${window.location.hostname}:8000/ws/dashboard/${OPERATOR_ID}`)
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const ws = new WebSocket(`${protocol}//${window.location.host}/ws/dashboard/${OPERATOR_ID}`)
     wsRef.current = ws
 
     ws.onopen = () => {

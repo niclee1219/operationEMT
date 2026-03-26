@@ -20,7 +20,10 @@ app = FastAPI(title="OperationEMT")
 # CORS — explicit origins for browser WebSocket + fetch compatibility
 # allow_credentials=True requires explicit origins (wildcard + credentials is
 # a CORS spec violation that browsers reject). Use ALLOWED_ORIGINS env var in prod.
-_allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+_allowed_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173,http://localhost:8000"
+).split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
@@ -60,3 +63,8 @@ async def health():
 static_dir = os.path.join(os.path.dirname(__file__), "..", "frontend", "caller")
 if os.path.isdir(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+# Serve built dashboard — mount last so API routes take priority
+dashboard_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dashboard", "dist")
+if os.path.isdir(dashboard_dist):
+    app.mount("/", StaticFiles(directory=dashboard_dist, html=True), name="dashboard")

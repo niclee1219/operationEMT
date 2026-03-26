@@ -13,6 +13,19 @@ _stt = None
 _pipeline = None
 _dashboard_router = None  # for broadcasting call_started / call_ended
 
+# Active caller WebSockets — allows dashboard to force-end a call
+_caller_ws: dict[str, WebSocket] = {}
+
+
+async def force_end_call(call_id: str) -> None:
+    """Close the caller's WebSocket from the operator side (End Call button)."""
+    ws = _caller_ws.get(call_id)
+    if ws:
+        try:
+            await ws.close(code=1000)
+        except Exception:
+            pass
+
 
 def setup(store: CallStore, stt_client, pipeline, dashboard_router) -> None:
     global _store, _stt, _pipeline, _dashboard_router
@@ -42,6 +55,7 @@ async def call_audio_ws(websocket: WebSocket, call_id: str):
 
         # Create call state
         await _store.create_call(call_id, operator_id)
+        _caller_ws[call_id] = websocket
 
         # Notify dashboard
         await _dashboard_router.broadcast_to_operator(operator_id, {
@@ -56,6 +70,8 @@ async def call_audio_ws(websocket: WebSocket, call_id: str):
         # Stream audio chunks
         while True:
             data = await websocket.receive()
+            if data.get("type") == "websocket.disconnect":
+                break  # clean exit — hits finally for proper cleanup
             if "bytes" in data:
                 await _stt.send_audio(call_id, data["bytes"])
             elif "text" in data:
@@ -68,6 +84,7 @@ async def call_audio_ws(websocket: WebSocket, call_id: str):
         logger.error("Call WS error call_id=%s: %s", call_id, e)
     finally:
         # Cleanup
+        _caller_ws.pop(call_id, None)
         if stream_started:
             await _stt.close_stream(call_id)
         if _store is not None:

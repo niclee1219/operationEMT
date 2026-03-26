@@ -45,22 +45,24 @@ class Pipeline:
 
         ts = time.time()
 
-        # Append to buffers
-        await self._store.update_call(
-            call_id,
-            transcript_buffer=call_state.transcript_buffer + " " + text,
-        )
-        # call_state is the live object (CallStore returns references, not copies)
-        # so appending to recent_window directly mutates the stored deque safely
-        call_state.recent_window.append((ts, text))
+        # Only commit final chunks to the buffer — interim results are superseded
+        # by the final for the same utterance and would duplicate the transcript.
+        if is_final:
+            await self._store.update_call(
+                call_id,
+                transcript_buffer=call_state.transcript_buffer + " " + text,
+            )
+            call_state.recent_window.append((ts, text))
 
-        # Broadcast immediately (latency-critical)
+        # Broadcast all chunks immediately (latency-critical).
+        # is_final lets the dashboard replace the interim preview with confirmed text.
         await self._broadcast(
             call_state.operator_id,
             {
                 "type": "transcript_delta",
                 "call_id": call_id,
                 "text": text,
+                "is_final": is_final,
                 "timestamp": ts,
             },
         )
@@ -115,9 +117,17 @@ class Pipeline:
             if result.get("condition") and "condition" not in call_state.operator_overrides:
                 update_kwargs["condition"] = result["condition"]
             if result.get("differentials"):
-                # Differentials bypass operator_overrides intentionally:
-                # operators cannot override AI-generated differential diagnoses in this MVP
                 update_kwargs["differentials"] = result["differentials"]
+            # New extended fields — only update if not operator-overridden
+            if result.get("allergies") and "allergies" not in call_state.operator_overrides:
+                update_kwargs["allergies"] = result["allergies"]
+                fields_updated.append("allergies")
+            if result.get("past_conditions") and "past_conditions" not in call_state.operator_overrides:
+                update_kwargs["past_conditions"] = result["past_conditions"]
+                fields_updated.append("past_conditions")
+            if result.get("additional_notes") and "additional_notes" not in call_state.operator_overrides:
+                update_kwargs["additional_notes"] = result["additional_notes"]
+                fields_updated.append("additional_notes")
             if update_kwargs:
                 await self._store.update_call(call_id, **update_kwargs)
 
@@ -133,6 +143,9 @@ class Pipeline:
                     "differentials": result.get("differentials", []),
                     "pacs": result.get("pacs"),
                     "confirmed": call_state.confirmed,
+                    "allergies": result.get("allergies", []),
+                    "past_conditions": result.get("past_conditions", []),
+                    "additional_notes": result.get("additional_notes"),
                     "fields_updated": fields_updated,
                     "timestamp": time.time(),
                 },

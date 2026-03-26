@@ -163,7 +163,7 @@ export default function TriagePanel({ pacs, differentials = [], confirmed, onCon
             style={{
               padding: '10px',
               borderRadius: '6px',
-              border: 'none',
+              border: pacs ? 'none' : '1px solid #334155',
               cursor: pacs ? 'pointer' : 'not-allowed',
               fontWeight: 700,
               fontSize: '14px',
@@ -171,7 +171,6 @@ export default function TriagePanel({ pacs, differentials = [], confirmed, onCon
               textTransform: 'uppercase',
               background: pacs ? '#16a34a' : '#1e293b',
               color: pacs ? '#fff' : '#475569',
-              border: pacs ? 'none' : '1px solid #334155',
               transition: 'background 0.2s, color 0.2s',
             }}
           >

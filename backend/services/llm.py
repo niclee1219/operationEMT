@@ -11,28 +11,44 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 _client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
-_cache: dict = {}
 
 SYSTEM_PROMPT = """You are an EMS dispatch AI. Extract structured patient info and assign PACS triage.
-PACS: P1+ (cardiac arrest/no breathing/no pulse), P1 (chest pain/head injury/stroke),
-P2 (abdominal pain/moderate injury), P3 (minor pain/diarrhea), P4 (cough/minor ailment).
-Rules: Extract only explicitly stated info. Null for unknown. If ANY P1+ indicator present → P1+.
-Consider Singapore context (HDB blocks, Singlish)."""
+PACS levels:
+  P1+ = cardiac arrest / no breathing / no pulse
+  P1  = chest pain / head injury / stroke / severe trauma
+  P2  = abdominal pain / moderate injury / semi-conscious
+  P3  = minor pain / dizziness / diarrhoea
+  P4  = cough / minor ailment / stable
+  False Alarm = situation resolved, patient confirmed fine, or caller confirms it was a mistake
+Rules:
+- Extract ONLY explicitly stated information. Use null for unknown.
+- If ANY P1+ indicator is present → P1+, regardless of other factors.
+- Consider Singapore context (HDB blocks, void decks, Singlish).
+- allergies: list of stated allergies, empty list if none mentioned.
+- past_conditions: list of stated medical history / past illnesses, empty list if none mentioned.
+- additional_notes: any extra details like clothing description, room location, how long unconscious, bystander info. Null if nothing extra."""
 
 USER_TEMPLATE = """Transcript: <transcript>{text}</transcript>
 Return ONLY this JSON:
-{{"name":null or string,"age":null or int,"location":null or string,"condition":null or string,"differentials":[{{"condition":string,"probability":float}}],"pacs":null or "P1+" or "P1" or "P2" or "P3" or "P4","reasoning":string}}"""
+{{"name":null or string,"age":null or int,"location":null or string,"condition":null or string,"allergies":[],"past_conditions":[],"additional_notes":null or string,"differentials":[{{"condition":string,"probability":float}}],"pacs":null or "P1+" or "P1" or "P2" or "P3" or "P4" or "False Alarm","reasoning":string}}"""
+
+_cache: dict = {}
 
 
 def _call_api(transcript: str) -> dict:
     """Synchronous API call — run in thread pool via asyncio.to_thread."""
     response = _client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-haiku-4-5-20251001",
         max_tokens=512,
-        messages=[{"role": "user", "content": USER_TEMPLATE.format(text=transcript)}],
         system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": USER_TEMPLATE.format(text=transcript)}],
     )
-    raw = response.content[0].text
+    raw = response.content[0].text.strip()
+    # Strip markdown fences if present
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
     try:
         return json.loads(raw)
     except json.JSONDecodeError as exc:

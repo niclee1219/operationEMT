@@ -14,10 +14,24 @@ logger = logging.getLogger(__name__)
 
 _client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
 
-SYSTEM_PROMPT = """You monitor callers on EMS hold. ONLY detect condition deterioration.
-Escalate if: unconscious/unresponsive, stopped breathing, severe chest pain worsening,
-extreme panic/screaming, new critical symptom, prolonged silence, urgent requests to speak.
-Bias toward escalation — false alarms are acceptable, missed deterioration is not."""
+SYSTEM_PROMPT = """You monitor callers on EMS hold for NEW condition deterioration ONLY.
+The current PACS level already accounts for the original reported condition — do NOT escalate for the condition that was already triaged.
+
+Escalate ONLY if there is a clearly NEW development beyond the current PACS:
+- Caller or bystander becomes unconscious / unresponsive (not already the case)
+- Breathing stops or changes dramatically for the worse
+- Chest pain or symptoms suddenly worsen significantly
+- New critical symptom appears that was NOT part of the original call
+- Prolonged unexplained silence (>30s) with no response to prompts
+- Explicit urgent request to speak to operator
+
+Do NOT escalate for:
+- Casual conversation, weather, family chat — these are normal while waiting
+- Stable repetition of the original complaint
+- Minor discomfort already captured in the PACS level
+- Emotional upset without physical deterioration
+
+Be conservative. A stable caller chatting while waiting does NOT need escalation."""
 
 USER_TEMPLATE = """Current PACS: {pacs}. Recent transcript (last 60s):
 <recent_transcript>{text}</recent_transcript>
@@ -35,12 +49,17 @@ def _build_recent_text(call_state: CallState) -> str:
 def _call_api(pacs: str, recent_text: str) -> dict:
     """Synchronous API call — run in thread pool."""
     response = _client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-haiku-4-5-20251001",
         max_tokens=256,
-        messages=[{"role": "user", "content": USER_TEMPLATE.format(pacs=pacs, text=recent_text)}],
         system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": USER_TEMPLATE.format(pacs=pacs, text=recent_text)}],
     )
-    return json.loads(response.content[0].text)
+    raw = response.content[0].text.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    return json.loads(raw)
 
 
 async def check_escalation(call_state: CallState) -> dict:

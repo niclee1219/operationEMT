@@ -1,4 +1,4 @@
-export default function EscalationAlert({ alert, onResumeCall }) {
+export default function EscalationAlert({ alert, callLabel, onResumeCall }) {
   if (!alert) return null
 
   return (
@@ -20,10 +20,28 @@ export default function EscalationAlert({ alert, onResumeCall }) {
         animation: 'alertPulse 1.8s ease-in-out infinite',
         zIndex: 100,
         flexShrink: 0,
+        gap: '12px',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '15px', fontWeight: 800, color: '#fff', letterSpacing: '0.05em' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+          <span style={{ fontSize: '15px', fontWeight: 800, color: '#fff', letterSpacing: '0.05em', flexShrink: 0 }}>
             ESCALATION ALERT
+          </span>
+          {/* Call tag */}
+          <span style={{
+            background: 'rgba(0,0,0,0.25)',
+            color: '#fca5a5',
+            fontSize: '11px',
+            fontWeight: 700,
+            padding: '2px 7px',
+            borderRadius: '3px',
+            letterSpacing: '0.08em',
+            flexShrink: 0,
+            maxWidth: '120px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
+            {callLabel || alert.call_id}
           </span>
           {alert.severity === 'critical' && (
             <span style={{
@@ -34,12 +52,20 @@ export default function EscalationAlert({ alert, onResumeCall }) {
               padding: '2px 7px',
               borderRadius: '3px',
               letterSpacing: '0.1em',
+              flexShrink: 0,
             }}>
               CRITICAL
             </span>
           )}
           {alert.trigger_phrase && (
-            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.85)', fontStyle: 'italic' }}>
+            <span style={{
+              fontSize: '13px',
+              color: 'rgba(255,255,255,0.85)',
+              fontStyle: 'italic',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
               "{alert.trigger_phrase}"
             </span>
           )}

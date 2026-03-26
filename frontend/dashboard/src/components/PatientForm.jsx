@@ -1,4 +1,4 @@
-const FIELDS = [
+const PATIENT_FIELDS = [
   { key: 'name',      label: 'Name' },
   { key: 'age',       label: 'Age' },
   { key: 'location',  label: 'Location' },
@@ -68,6 +68,54 @@ function FieldInput({ fieldKey, label, value, isAI, onChange }) {
   )
 }
 
+function TextAreaField({ fieldKey, label, value, isAI, onChange }) {
+  return (
+    <div>
+      <label style={{
+        display: 'block',
+        fontSize: '11px',
+        fontWeight: 600,
+        color: '#64748b',
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        marginBottom: '4px',
+      }}>
+        {label}
+        {isAI && (
+          <span style={{
+            marginLeft: '6px',
+            background: '#fbbf24', color: '#0f172a',
+            fontSize: '10px', fontWeight: 800,
+            padding: '1px 5px', borderRadius: '3px',
+          }}>AI</span>
+        )}
+      </label>
+      <textarea
+        value={value ?? ''}
+        onChange={(e) => onChange(fieldKey, e.target.value)}
+        rows={2}
+        style={{
+          width: '100%',
+          boxSizing: 'border-box',
+          background: '#0f172a',
+          border: '1px solid #334155',
+          borderRadius: '5px',
+          padding: '7px 10px',
+          color: '#e2e8f0',
+          fontSize: '13px',
+          fontFamily: 'system-ui, sans-serif',
+          outline: 'none',
+          resize: 'vertical',
+          transition: 'border-color 0.15s',
+          lineHeight: '1.4',
+        }}
+        onFocus={(e) => { e.target.style.borderColor = '#3b82f6' }}
+        onBlur={(e) => { e.target.style.borderColor = '#334155' }}
+      />
+    </div>
+  )
+}
+
 function NehrBanner({ status, data }) {
   if (!status) return null
 
@@ -122,7 +170,17 @@ function NehrBanner({ status, data }) {
   return null
 }
 
-export default function PatientForm({ patient = {}, condition = '', aiFields = new Set(), nehrStatus, nehrData, onFieldEdit }) {
+export default function PatientForm({
+  patient = {},
+  condition = '',
+  aiFields = new Set(),
+  nehrStatus,
+  nehrData,
+  allergies = [],
+  past_conditions = [],
+  additional_notes = '',
+  onFieldEdit,
+}) {
   const values = {
     name: patient.name ?? '',
     age: patient.age != null ? String(patient.age) : '',
@@ -139,7 +197,7 @@ export default function PatientForm({ patient = {}, condition = '', aiFields = n
         Patient Details
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {FIELDS.map(({ key, label }) => (
+        {PATIENT_FIELDS.map(({ key, label }) => (
           <FieldInput
             key={key}
             fieldKey={key}
@@ -149,6 +207,31 @@ export default function PatientForm({ patient = {}, condition = '', aiFields = n
             onChange={onFieldEdit}
           />
         ))}
+
+        {/* Divider */}
+        <div style={{ borderTop: '1px solid #334155', paddingTop: '4px' }} />
+
+        <TextAreaField
+          fieldKey="allergies"
+          label="Allergies"
+          value={Array.isArray(allergies) ? allergies.join(', ') : allergies}
+          isAI={aiFields.has('allergies')}
+          onChange={(key, val) => onFieldEdit(key, val)}
+        />
+        <TextAreaField
+          fieldKey="past_conditions"
+          label="Past Illnesses / Conditions"
+          value={Array.isArray(past_conditions) ? past_conditions.join(', ') : past_conditions}
+          isAI={aiFields.has('past_conditions')}
+          onChange={(key, val) => onFieldEdit(key, val)}
+        />
+        <TextAreaField
+          fieldKey="additional_notes"
+          label="Additional Notes"
+          value={additional_notes ?? ''}
+          isAI={aiFields.has('additional_notes')}
+          onChange={(key, val) => onFieldEdit(key, val)}
+        />
       </div>
       <NehrBanner status={nehrStatus} data={nehrData} />
     </div>

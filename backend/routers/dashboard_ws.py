@@ -58,6 +58,9 @@ async def dashboard_ws(websocket: WebSocket, operator_id: str):
                 "differentials": call_state.differentials,
                 "pacs": call_state.pacs,
                 "confirmed": call_state.confirmed,
+                "allergies": call_state.allergies,
+                "past_conditions": call_state.past_conditions,
+                "additional_notes": call_state.additional_notes,
                 "fields_updated": [],
                 "timestamp": call_state.created_at,
             })

@@ -78,6 +78,9 @@ function makeEmptyCall(call_id) {
     aiFields: new Set(),
     nehrStatus: null,
     nehrData: null,
+    allergies: [],
+    past_conditions: [],
+    additional_notes: null,
     startedAt: Date.now() / 1000,
     answeredAt: null,
   }
@@ -257,6 +260,9 @@ export default function App() {
           confirmed: msg.confirmed ?? call.confirmed,
           aiFields: newAiFields,
           nehrStatus,
+          allergies: (msg.allergies && msg.allergies.length > 0) ? msg.allergies : call.allergies,
+          past_conditions: (msg.past_conditions && msg.past_conditions.length > 0) ? msg.past_conditions : call.past_conditions,
+          additional_notes: msg.additional_notes ?? call.additional_notes,
         })
 
         if (nameJustAppeared && call.nehrStatus === null) {
@@ -340,6 +346,7 @@ export default function App() {
 
       <EscalationAlert
         alert={activeAlert}
+        callLabel={activeAlert ? (calls.get(activeAlert.call_id)?.patient?.name || calls.get(activeAlert.call_id)?.condition || 'New Call') : null}
         onResumeCall={(id) => {
           sendMessage('resume_call', { call_id: id })
           setActiveAlert(null)
@@ -366,6 +373,7 @@ export default function App() {
             activeCalls={activeCalls}
             pastCalls={pastCalls}
             selectedCallId={selectedCallId}
+            alertCallId={activeAlert?.call_id}
             onSelect={setSelectedCallId}
           />
 
@@ -382,6 +390,9 @@ export default function App() {
                       aiFields={selectedCall.aiFields}
                       nehrStatus={selectedCall.nehrStatus}
                       nehrData={selectedCall.nehrData}
+                      allergies={selectedCall.allergies}
+                      past_conditions={selectedCall.past_conditions}
+                      additional_notes={selectedCall.additional_notes}
                       onFieldEdit={(field, value) => {
                         sendMessage('field_edit', { call_id: selectedCallId, field, value })
                         setCalls(prev => {
@@ -390,6 +401,9 @@ export default function App() {
                           const next = new Map(prev)
                           if (['name', 'age', 'location'].includes(field)) {
                             next.set(selectedCallId, { ...call, patient: { ...call.patient, [field]: value } })
+                          } else if (field === 'allergies' || field === 'past_conditions') {
+                            // Store as comma-split list
+                            next.set(selectedCallId, { ...call, [field]: value.split(',').map(s => s.trim()).filter(Boolean) })
                           } else {
                             next.set(selectedCallId, { ...call, [field]: value })
                           }
@@ -404,6 +418,7 @@ export default function App() {
                       differentials={selectedCall.differentials}
                       confirmed={selectedCall.confirmed}
                       onConfirm={() => sendMessage('confirm_triage', { call_id: selectedCallId })}
+                      onTransferNonEmergency={() => sendMessage('end_call', { call_id: selectedCallId })}
                       onPacsEdit={(pacs) => {
                         sendMessage('field_edit', { call_id: selectedCallId, field: 'pacs', value: pacs })
                         setCalls(prev => {

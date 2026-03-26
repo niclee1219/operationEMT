@@ -1,14 +1,15 @@
 import { useState } from 'react'
 
 const PACS_CONFIG = {
-  'P1+': { color: '#dc2626', pulse: true },
-  'P1':  { color: '#ea580c', pulse: false },
-  'P2':  { color: '#ca8a04', pulse: false },
-  'P3':  { color: '#16a34a', pulse: false },
-  'P4':  { color: '#64748b', pulse: false },
+  'P1+':         { color: '#dc2626', pulse: true,  label: 'P1+' },
+  'P1':          { color: '#ea580c', pulse: false, label: 'P1' },
+  'P2':          { color: '#ca8a04', pulse: false, label: 'P2' },
+  'P3':          { color: '#16a34a', pulse: false, label: 'P3' },
+  'P4':          { color: '#64748b', pulse: false, label: 'P4' },
+  'False Alarm': { color: '#334155', pulse: false, label: 'FALSE ALARM' },
 }
 
-const PACS_OPTIONS = ['P1+', 'P1', 'P2', 'P3', 'P4']
+const PACS_OPTIONS = ['P1+', 'P1', 'P2', 'P3', 'P4', 'False Alarm']
 
 function getPacsColor(pacs) {
   return PACS_CONFIG[pacs]?.color ?? '#64748b'
@@ -18,18 +19,26 @@ function getPacsPulse(pacs) {
   return PACS_CONFIG[pacs]?.pulse ?? false
 }
 
-export default function TriagePanel({ pacs, differentials = [], confirmed, onConfirm, onPacsEdit }) {
+export default function TriagePanel({ pacs, differentials = [], confirmed, onConfirm, onPacsEdit, onTransferNonEmergency }) {
   const [dispatched, setDispatched] = useState(false)
+  const [transferred, setTransferred] = useState(false)
   const color = getPacsColor(pacs)
   const shouldPulse = getPacsPulse(pacs)
+  const isFalseAlarm = pacs === 'False Alarm'
+  const displayLabel = PACS_CONFIG[pacs]?.label ?? (pacs ?? 'PENDING')
 
   function handleConfirm() {
     setDispatched(true)
     if (onConfirm) onConfirm()
   }
 
+  function handleTransfer() {
+    setTransferred(true)
+    if (onTransferNonEmergency) onTransferNonEmergency()
+  }
+
   function handlePacsChange(e) {
-    if (dispatched) return
+    if (dispatched || transferred) return
     if (onPacsEdit) onPacsEdit(e.target.value)
   }
 
@@ -39,10 +48,6 @@ export default function TriagePanel({ pacs, differentials = [], confirmed, onCon
         @keyframes pacsPulse {
           0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.7); }
           50%       { box-shadow: 0 0 0 10px rgba(220,38,38,0); }
-        }
-        @keyframes confirmPulse {
-          0%, 100% { opacity: 1; }
-          50%       { opacity: 0.8; }
         }
       `}</style>
       <div style={{
@@ -58,17 +63,18 @@ export default function TriagePanel({ pacs, differentials = [], confirmed, onCon
           <div style={{
             background: color,
             color: '#fff',
-            fontSize: '36px',
+            fontSize: isFalseAlarm ? '20px' : '36px',
             fontWeight: 800,
-            padding: '10px 28px',
+            padding: '10px 20px',
             borderRadius: '10px',
             letterSpacing: '0.05em',
             animation: shouldPulse ? 'pacsPulse 1.6s ease-in-out infinite' : 'none',
             userSelect: 'none',
+            textAlign: 'center',
           }}>
-            {pacs ?? 'PENDING'}
+            {displayLabel}
           </div>
-          {!dispatched && (
+          {!dispatched && !transferred && (
             <span style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
               {confirmed ? 'Verified' : 'Pending Verification'}
             </span>
@@ -83,16 +89,16 @@ export default function TriagePanel({ pacs, differentials = [], confirmed, onCon
           <select
             value={pacs ?? ''}
             onChange={handlePacsChange}
-            disabled={dispatched}
+            disabled={dispatched || transferred}
             style={{
               width: '100%',
-              background: dispatched ? '#0f172a' : '#0f172a',
+              background: '#0f172a',
               border: '1px solid #334155',
               borderRadius: '5px',
-              color: dispatched ? '#475569' : '#e2e8f0',
+              color: (dispatched || transferred) ? '#475569' : '#e2e8f0',
               padding: '6px 8px',
               fontSize: '13px',
-              cursor: dispatched ? 'not-allowed' : 'pointer',
+              cursor: (dispatched || transferred) ? 'not-allowed' : 'pointer',
               outline: 'none',
             }}
           >
@@ -141,7 +147,7 @@ export default function TriagePanel({ pacs, differentials = [], confirmed, onCon
           </div>
         )}
 
-        {/* Confirm button */}
+        {/* Action buttons */}
         {dispatched ? (
           <div style={{
             textAlign: 'center',
@@ -154,28 +160,62 @@ export default function TriagePanel({ pacs, differentials = [], confirmed, onCon
             fontSize: '14px',
             letterSpacing: '0.05em',
           }}>
-            DISPATCHED
+            {isFalseAlarm ? 'CLOSED — FALSE ALARM' : 'DISPATCHED'}
+          </div>
+        ) : transferred ? (
+          <div style={{
+            textAlign: 'center',
+            padding: '10px',
+            background: 'rgba(59,130,246,0.1)',
+            border: '1px solid #3b82f6',
+            borderRadius: '6px',
+            color: '#60a5fa',
+            fontWeight: 700,
+            fontSize: '13px',
+            letterSpacing: '0.05em',
+          }}>
+            TRANSFERRED TO NON-EMERGENCY
           </div>
         ) : (
-          <button
-            onClick={handleConfirm}
-            disabled={!pacs}
-            style={{
-              padding: '10px',
-              borderRadius: '6px',
-              border: pacs ? 'none' : '1px solid #334155',
-              cursor: pacs ? 'pointer' : 'not-allowed',
-              fontWeight: 700,
-              fontSize: '14px',
-              letterSpacing: '0.05em',
-              textTransform: 'uppercase',
-              background: pacs ? '#16a34a' : '#1e293b',
-              color: pacs ? '#fff' : '#475569',
-              transition: 'background 0.2s, color 0.2s',
-            }}
-          >
-            Confirm & Dispatch
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button
+              onClick={handleConfirm}
+              disabled={!pacs}
+              style={{
+                padding: '10px',
+                borderRadius: '6px',
+                border: pacs ? 'none' : '1px solid #334155',
+                cursor: pacs ? 'pointer' : 'not-allowed',
+                fontWeight: 700,
+                fontSize: '14px',
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+                background: pacs ? (isFalseAlarm ? '#334155' : '#16a34a') : '#1e293b',
+                color: pacs ? '#fff' : '#475569',
+                transition: 'background 0.2s, color 0.2s',
+              }}
+            >
+              {isFalseAlarm ? 'Close as False Alarm' : 'Confirm & Dispatch'}
+            </button>
+            <button
+              onClick={handleTransfer}
+              style={{
+                padding: '8px',
+                borderRadius: '6px',
+                border: '1px solid #1d4ed8',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '12px',
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+                background: 'transparent',
+                color: '#60a5fa',
+                transition: 'background 0.2s',
+              }}
+            >
+              Transfer to Non-Emergency
+            </button>
+          </div>
         )}
       </div>
     </>

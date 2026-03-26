@@ -432,10 +432,14 @@
       const endedMsg         = document.getElementById('ended-msg');
       const statusText       = document.getElementById('status-text');
 
-      // ── URL params ─────────────────────────────────────────────────
+      // ── URL params (both optional — auto-generated if absent) ──────
       const params     = new URLSearchParams(window.location.search);
-      const callId     = params.get('call_id');
-      const operatorId = params.get('operator_id');
+      const operatorId = params.get('operator_id') || 'op-001';
+      const callId     = params.get('call_id') || (
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? 'CALL-' + crypto.randomUUID().split('-')[0].toUpperCase()
+          : 'CALL-' + Math.random().toString(36).slice(2, 8).toUpperCase()
+      );
 
       // ── Media / WS state ──────────────────────────────────────────
       let micStream       = null;
@@ -775,16 +779,7 @@
 
       // ── Init ───────────────────────────────────────────────────────
       function init () {
-        // Validate required URL params
-        if (!callId || !operatorId) {
-          micOverlay.classList.add('hidden');
-          errorScreen.classList.remove('hidden');
-          errorMessageEl.textContent =
-            'Invalid or missing emergency call link. Please contact your operator.';
-          return;
-        }
-
-        // Show mic overlay — user must grant before entering app
+        // Both params are now auto-generated — always proceed to mic overlay
         // (mic overlay is visible by default in HTML)
       }
 

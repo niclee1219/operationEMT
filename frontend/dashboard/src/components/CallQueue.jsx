@@ -98,26 +98,29 @@ function CallDuration({ startedAt, answeredAt, status }) {
   )
 }
 
-function CallRow({ call, isSelected, onSelect }) {
-  const label = call.patient?.name || call.call_id?.slice(-8) || '—'
+function CallRow({ call, isSelected, isAlerting, onSelect }) {
+  const label = call.patient?.name || call.condition || 'New Call'
   const isEnded = call.status === 'ended'
 
   return (
-    <div
-      onClick={() => onSelect && onSelect(call.call_id)}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        padding: '9px 14px',
-        cursor: 'pointer',
-        borderLeft: isSelected ? '3px solid #3b82f6' : '3px solid transparent',
-        background: isSelected ? '#263348' : 'transparent',
-        opacity: isEnded ? 0.55 : 1,
-        transition: 'background 0.15s',
-        userSelect: 'none',
-      }}
-    >
+    <>
+      <style>{`@keyframes alertRowFlash { 0%,100%{background:rgba(220,38,38,0.18)} 50%{background:rgba(220,38,38,0.05)} }`}</style>
+      <div
+        onClick={() => onSelect && onSelect(call.call_id)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '9px 14px',
+          cursor: 'pointer',
+          borderLeft: isAlerting ? '3px solid #dc2626' : isSelected ? '3px solid #3b82f6' : '3px solid transparent',
+          background: isAlerting ? undefined : isSelected ? '#263348' : 'transparent',
+          animation: isAlerting ? 'alertRowFlash 1.8s ease-in-out infinite' : 'none',
+          opacity: isEnded ? 0.55 : 1,
+          transition: 'background 0.15s',
+          userSelect: 'none',
+        }}
+      >
       <PacsBadge pacs={call.pacs} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
@@ -138,6 +141,7 @@ function CallRow({ call, isSelected, onSelect }) {
       </div>
       <StatusDot status={call.status} />
     </div>
+    </>
   )
 }
 
@@ -160,7 +164,7 @@ function SectionHeader({ title }) {
   )
 }
 
-export default function CallQueue({ activeCalls = [], pastCalls = [], selectedCallId, onSelect }) {
+export default function CallQueue({ activeCalls = [], pastCalls = [], selectedCallId, alertCallId, onSelect }) {
   return (
     <div style={{
       width: '220px',
@@ -181,6 +185,7 @@ export default function CallQueue({ activeCalls = [], pastCalls = [], selectedCa
               key={call.call_id}
               call={call}
               isSelected={call.call_id === selectedCallId}
+              isAlerting={call.call_id === alertCallId}
               onSelect={onSelect}
             />
           ))
@@ -196,6 +201,7 @@ export default function CallQueue({ activeCalls = [], pastCalls = [], selectedCa
                 key={call.call_id}
                 call={call}
                 isSelected={call.call_id === selectedCallId}
+                isAlerting={false}
                 onSelect={onSelect}
               />
             ))}

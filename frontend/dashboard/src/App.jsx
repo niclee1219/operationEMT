@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import useWebSocket from './hooks/useWebSocket'
 import CallQueue from './components/CallQueue'
 import LiveTranscript from './components/LiveTranscript'
@@ -6,8 +6,6 @@ import PatientForm from './components/PatientForm'
 import TriagePanel from './components/TriagePanel'
 import EscalationAlert from './components/EscalationAlert'
 import SmartHoldButton from './components/SmartHoldButton'
-
-const OPERATOR_ID = 'op-001'
 
 function makeEmptyCall(call_id) {
   return {
@@ -28,6 +26,12 @@ export default function App() {
   const [selectedCallId, setSelectedCallId] = useState(null)
   const [activeAlert, setActiveAlert] = useState(null)
   const aiFieldTimers = useRef({})  // call_id+field → timeout id
+
+  useEffect(() => {
+    return () => {
+      Object.values(aiFieldTimers.current).forEach(clearTimeout)
+    }
+  }, [])
 
   const handleMessage = useCallback((msg) => {
     const { type, call_id } = msg

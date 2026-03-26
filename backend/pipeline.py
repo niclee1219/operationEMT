@@ -140,8 +140,10 @@ class Pipeline:
         except Exception as e:
             logger.error("Extraction pipeline error for call %s: %s", call_id, e)
         finally:
-            # Clean up the task reference once this extraction run is complete
-            self._extraction_tasks.pop(call_id, None)
+            # Only remove if this task is still the stored task (guards against
+            # rapid debounce where a newer task replaced us in _extraction_tasks)
+            if self._extraction_tasks.get(call_id) is asyncio.current_task():
+                self._extraction_tasks.pop(call_id, None)
 
     def start_smart_hold_loop(self, call_id: str) -> None:
         """Start the Smart Hold monitoring loop for a call."""

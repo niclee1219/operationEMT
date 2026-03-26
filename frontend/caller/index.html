@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>995 Emergency</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      background: #ffffff;
+      font-family: system-ui, -apple-system, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    /* ── Mic permission overlay ── */
+    #mic-overlay {
+      position: fixed;
+      inset: 0;
+      background: #1e3a5f;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      padding: 32px 24px;
+      z-index: 100;
+      text-align: center;
+    }
+
+    #mic-overlay.hidden { display: none; }
+
+    .mic-icon {
+      width: 80px;
+      height: 80px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .mic-icon svg {
+      width: 44px;
+      height: 44px;
+      fill: #ffffff;
+    }
+
+    #mic-overlay h1 {
+      font-size: 26px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    #mic-overlay p {
+      font-size: 17px;
+      line-height: 1.5;
+      color: rgba(255,255,255,0.85);
+      max-width: 300px;
+    }
+
+    #btn-grant-mic {
+      background: #22c55e;
+      color: #ffffff;
+      border: none;
+      border-radius: 50px;
+      padding: 18px 48px;
+      font-size: 20px;
+      font-weight: 700;
+      cursor: pointer;
+      min-height: 64px;
+      min-width: 200px;
+      touch-action: manipulation;
+    }
+
+    #btn-grant-mic:active { opacity: 0.85; }
+
+    #mic-error {
+      color: #fca5a5;
+      font-size: 15px;
+      font-weight: 600;
+      display: none;
+    }
+
+    /* ── Error screen ── */
+    #error-screen {
+      position: fixed;
+      inset: 0;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 24px;
+      text-align: center;
+    }
+
+    #error-screen.hidden { display: none; }
+
+    #error-screen h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #dc2626;
+    }
+
+    #error-screen p {
+      font-size: 18px;
+      color: #374151;
+      max-width: 320px;
+      line-height: 1.5;
+    }
+
+    /* ── Main app container ── */
+    #app {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #ffffff;
+    }
+
+    #app.hidden { display: none; }
+
+    /* ── Header ── */
+    #header {
+      width: 100%;
+      padding: 20px 24px 12px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    #header-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #dc2626;
+    }
+
+    #header-status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 18px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    .pulse-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .pulse-dot.green {
+      background: #22c55e;
+      animation: pulse-green 1.2s ease-in-out infinite;
+    }
+
+    .pulse-dot.blue {
+      background: #3b82f6;
+      animation: pulse-blue 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-green {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.7); }
+      50% { box-shadow: 0 0 0 8px rgba(34,197,94,0); }
+    }
+
+    @keyframes pulse-blue {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.7); }
+      50% { box-shadow: 0 0 0 8px rgba(59,130,246,0); }
+    }
+
+    /* ── Body / center area ── */
+    #body {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      padding: 0 24px;
+    }
+
+    /* ── Status text ── */
+    #status-text {
+      font-size: 16px;
+      color: #6b7280;
+      text-align: center;
+      line-height: 1.4;
+      max-width: 280px;
+    }
+
+    /* ── Call button ── */
+    .call-btn {
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 17px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: 0.5px;
+      touch-action: manipulation;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      transition: transform 0.1s, box-shadow 0.1s;
+      user-select: none;
+    }
+
+    .call-btn:active {
+      transform: scale(0.95);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    }
+
+    #btn-start { background: #16a34a; }
+    #btn-start:hover { background: #15803d; }
+
+    #btn-end { background: #dc2626; }
+    #btn-end:hover { background: #b91c1c; }
+
+    .btn-icon {
+      font-size: 32px;
+      line-height: 1;
+    }
+
+    /* ── Connecting spinner ── */
+    #connecting-spinner {
+      width: 80px;
+      height: 80px;
+      border: 6px solid #e5e7eb;
+      border-top-color: #22c55e;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── Waveform ── */
+    #waveform {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 56px;
+    }
+
+    .wave-bar {
+      width: 4px;
+      background: #22c55e;
+      border-radius: 2px;
+      min-height: 4px;
+      transition: height 0.05s ease-out;
+    }
+
+    /* ── Smart-hold message ── */
+    #smart-hold-msg {
+      text-align: center;
+      padding: 0 8px;
+    }
+
+    #smart-hold-msg .sh-main {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1e40af;
+      margin-bottom: 10px;
+    }
+
+    #smart-hold-msg .sh-sub {
+      font-size: 17px;
+      color: #374151;
+      line-height: 1.5;
+      max-width: 300px;
+      margin: 0 auto;
+    }
+
+    /* Pulsing blue circle for smart hold */
+    #smart-hold-pulse {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: rgba(59,130,246,0.15);
+      border: 4px solid #3b82f6;
+      animation: sh-pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes sh-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.12); opacity: 0.65; }
+    }
+
+    /* ── Ended screen ── */
+    #ended-msg {
+      text-align: center;
+    }
+
+    #ended-msg .ended-main {
+      font-size: 22px;
+      font-weight: 700;
+      color: #6b7280;
+      margin-bottom: 12px;
+    }
+
+    #ended-msg .ended-sub {
+      font-size: 18px;
+      color: #374151;
+      line-height: 1.5;
+    }
+
+    /* ── Visibility helpers ── */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Mic permission overlay -->
+  <div id="mic-overlay">
+    <div class="mic-icon">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm6.5 9a.5.5 0 0 1 1 0A7.5 7.5 0 0 1 12.5 17.46V20h2a.5.5 0 0 1 0 1h-5a.5.5 0 0 1 0-1h2v-2.54A7.5 7.5 0 0 1 4.5 10a.5.5 0 0 1 1 0 6.5 6.5 0 0 0 13 0z"/>
+      </svg>
+    </div>
+    <h1>Microphone Access Needed</h1>
+    <p>This app needs your microphone to connect you with the emergency operator.</p>
+    <button id="btn-grant-mic">Allow Microphone</button>
+    <p id="mic-error"></p>
+  </div>
+
+  <!-- Error screen (missing params) -->
+  <div id="error-screen" class="hidden">
+    <h1>995 Emergency</h1>
+    <p id="error-message">Invalid link. Please use the link provided by your operator.</p>
+  </div>
+
+  <!-- Main app -->
+  <div id="app" class="hidden">
+
+    <!-- Header -->
+    <div id="header">
+      <div id="header-title">995 Emergency</div>
+      <div id="header-status-indicator" class="hidden"></div>
+    </div>
+
+    <!-- Body -->
+    <div id="body">
+
+      <!-- READY state elements -->
+      <button id="btn-start" class="call-btn hidden">
+        <span class="btn-icon">&#x1F4DE;</span>
+        <span>START CALL</span>
+      </button>
+
+      <!-- CONNECTING state elements -->
+      <div id="connecting-spinner" class="hidden"></div>
+
+      <!-- ACTIVE state elements -->
+      <div id="waveform" class="hidden">
+        <!-- 20 bars generated by JS -->
+      </div>
+      <button id="btn-end" class="call-btn hidden">
+        <span class="btn-icon">&#x260E;</span>
+        <span>END CALL</span>
+      </button>
+
+      <!-- SMART_HOLD state elements -->
+      <div id="smart-hold-pulse" class="hidden"></div>
+      <div id="smart-hold-msg" class="hidden">
+        <p class="sh-main">Help is on the way</p>
+        <p class="sh-sub">Please stay on the line. Speak if your condition changes.</p>
+      </div>
+
+      <!-- ENDED state elements -->
+      <div id="ended-msg" class="hidden">
+        <p class="ended-main">Call ended</p>
+        <p class="ended-sub">Thank you. Help is on the way.</p>
+      </div>
+
+      <!-- Status text -->
+      <p id="status-text"></p>
+
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // ── State machine ──────────────────────────────────────────────
+      const STATE = Object.freeze({
+        READY: 'READY',
+        CONNECTING: 'CONNECTING',
+        ACTIVE: 'ACTIVE',
+        SMART_HOLD: 'SMART_HOLD',
+        ENDED: 'ENDED',
+      });
+
+      let currentState = null;
+
+      // ── DOM refs ───────────────────────────────────────────────────
+      const micOverlay       = document.getElementById('mic-overlay');
+      const btnGrantMic      = document.getElementById('btn-grant-mic');
+      const micErrorEl       = document.getElementById('mic-error');
+      const errorScreen      = document.getElementById('error-screen');
+      const errorMessageEl   = document.getElementById('error-message');
+      const app              = document.getElementById('app');
+      const headerTitle      = document.getElementById('header-title');
+      const headerIndicator  = document.getElementById('header-status-indicator');
+      const btnStart         = document.getElementById('btn-start');
+      const connectingSpinner= document.getElementById('connecting-spinner');
+      const waveformEl       = document.getElementById('waveform');
+      const btnEnd           = document.getElementById('btn-end');
+      const smartHoldPulse   = document.getElementById('smart-hold-pulse');
+      const smartHoldMsg     = document.getElementById('smart-hold-msg');
+      const endedMsg         = document.getElementById('ended-msg');
+      const statusText       = document.getElementById('status-text');
+
+      // ── URL params ─────────────────────────────────────────────────
+      const params     = new URLSearchParams(window.location.search);
+      const callId     = params.get('call_id');
+      const operatorId = params.get('operator_id');
+
+      // ── Media / WS state ──────────────────────────────────────────
+      let micStream       = null;
+      let mediaRecorder   = null;
+      let websocket       = null;
+      let audioCtx        = null;
+      let analyser        = null;
+      let rafId           = null;
+      let waveBars        = [];
+      let smartHoldTimer  = null;
+
+      // ── Waveform bars setup ────────────────────────────────────────
+      function buildWaveBars () {
+        waveformEl.innerHTML = '';
+        waveBars = [];
+        for (let i = 0; i < 20; i++) {
+          const bar = document.createElement('div');
+          bar.className = 'wave-bar';
+          bar.style.height = '4px';
+          waveformEl.appendChild(bar);
+          waveBars.push(bar);
+        }
+      }
+
+      buildWaveBars();
+
+      // ── State transition ───────────────────────────────────────────
+      function setState (state) {
+        currentState = state;
+
+        // Reset all dynamic elements
+        headerIndicator.className = 'hidden';
+        headerIndicator.innerHTML = '';
+        btnStart.classList.add('hidden');
+        connectingSpinner.classList.add('hidden');
+        waveformEl.classList.add('hidden');
+        btnEnd.classList.add('hidden');
+        smartHoldPulse.classList.add('hidden');
+        smartHoldMsg.classList.add('hidden');
+        endedMsg.classList.add('hidden');
+        headerTitle.textContent = '995 Emergency';
+        statusText.textContent = '';
+
+        cancelAnimationFrame(rafId);
+
+        switch (state) {
+          case STATE.READY:
+            btnStart.classList.remove('hidden');
+            statusText.textContent = 'Press to connect to 995';
+            break;
+
+          case STATE.CONNECTING:
+            connectingSpinner.classList.remove('hidden');
+            statusText.textContent = 'Connecting...';
+            break;
+
+          case STATE.ACTIVE:
+            // Header indicator
+            headerIndicator.innerHTML =
+              '<span class="pulse-dot green"></span><span style="color:#16a34a;">CONNECTED</span>';
+            headerIndicator.classList.remove('hidden');
+            // Waveform + end button
+            waveformEl.classList.remove('hidden');
+            btnEnd.classList.remove('hidden');
+            statusText.textContent = 'Operator is listening...';
+            startWaveformAnimation();
+            break;
+
+          case STATE.SMART_HOLD:
+            headerIndicator.innerHTML =
+              '<span class="pulse-dot blue"></span><span style="color:#1d4ed8;">AI MONITORING</span>';
+            headerIndicator.classList.remove('hidden');
+            smartHoldPulse.classList.remove('hidden');
+            smartHoldMsg.classList.remove('hidden');
+            statusText.textContent = 'Help is on the way. Stay on the line.';
+            break;
+
+          case STATE.ENDED:
+            endedMsg.classList.remove('hidden');
+            statusText.textContent = '';
+            break;
+        }
+      }
+
+      // ── Waveform animation ─────────────────────────────────────────
+      function startWaveformAnimation () {
+        if (!analyser) {
+          // No analyser — animate with random values for visual feedback
+          animateFallback();
+          return;
+        }
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray    = new Uint8Array(bufferLength);
+        const barCount     = waveBars.length;
+        const step         = Math.floor(bufferLength / barCount);
+        const maxHeight    = 40; // px
+
+        function draw () {
+          if (currentState !== STATE.ACTIVE) return;
+          rafId = requestAnimationFrame(draw);
+
+          analyser.getByteFrequencyData(dataArray);
+
+          for (let i = 0; i < barCount; i++) {
+            let sum = 0;
+            const start = i * step;
+            for (let j = start; j < start + step && j < bufferLength; j++) {
+              sum += dataArray[j];
+            }
+            const avg    = sum / step;
+            const height = Math.max(4, (avg / 255) * maxHeight);
+            waveBars[i].style.height = height + 'px';
+          }
+        }
+
+        draw();
+      }
+
+      function animateFallback () {
+        const maxHeight = 40;
+
+        function draw () {
+          if (currentState !== STATE.ACTIVE) return;
+          rafId = requestAnimationFrame(draw);
+          const t = Date.now() / 200;
+          for (let i = 0; i < waveBars.length; i++) {
+            const h = Math.max(4, ((Math.sin(t + i * 0.5) + 1) / 2) * maxHeight);
+            waveBars[i].style.height = h + 'px';
+          }
+        }
+
+        draw();
+      }
+
+      // ── Smart Hold TTS ─────────────────────────────────────────────
+      function speakReassurance () {
+        if (!window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(
+          'Help is on the way. I am staying on the line with you. Please speak if your condition changes.'
+        );
+        utter.rate  = 0.9;
+        utter.pitch = 1.0;
+        window.speechSynthesis.speak(utter);
+      }
+
+      function startSmartHoldSpeech () {
+        speakReassurance();
+        smartHoldTimer = setInterval(speakReassurance, 30000);
+      }
+
+      function stopSmartHoldSpeech () {
+        clearInterval(smartHoldTimer);
+        smartHoldTimer = null;
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+      }
+
+      // ── WebSocket ──────────────────────────────────────────────────
+      function openWebSocket () {
+        const host = window.location.hostname || 'localhost';
+        const url  = `ws://${host}:8000/ws/call/${callId}/audio`;
+
+        websocket = new WebSocket(url);
+        websocket.binaryType = 'arraybuffer';
+
+        websocket.addEventListener('open', function () {
+          // Send call_init text frame
+          websocket.send(JSON.stringify({
+            type:       'call_init',
+            call_id:    callId,
+            operator_id: operatorId,
+            audio_mime: 'audio/webm;codecs=opus',
+            sample_rate: 16000,
+          }));
+
+          // Play greeting (silent fail in dev)
+          new Audio('/static/greeting.mp3').play().catch(function () {});
+
+          setState(STATE.ACTIVE);
+          startAudioStreaming();
+        });
+
+        websocket.addEventListener('message', function (event) {
+          if (typeof event.data !== 'string') return;
+
+          let msg;
+          try { msg = JSON.parse(event.data); } catch (e) { return; }
+
+          if (
+            msg.type === 'call_status_changed' &&
+            msg.status === 'smart_hold'
+          ) {
+            transitionToSmartHold();
+          }
+        });
+
+        websocket.addEventListener('close', function () {
+          if (currentState === STATE.ACTIVE || currentState === STATE.SMART_HOLD) {
+            endCall();
+          }
+        });
+
+        websocket.addEventListener('error', function () {
+          if (currentState === STATE.CONNECTING || currentState === STATE.ACTIVE) {
+            statusText.textContent = 'Connection lost. Please try again.';
+            endCall();
+          }
+        });
+      }
+
+      // ── Audio streaming ────────────────────────────────────────────
+      function startAudioStreaming () {
+        if (!micStream) return;
+
+        // Build analyser from the existing stream
+        try {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 256;
+          const source = audioCtx.createMediaStreamSource(micStream);
+          source.connect(analyser);
+          // Restart waveform animation now that analyser is ready
+          cancelAnimationFrame(rafId);
+          startWaveformAnimation();
+        } catch (e) {
+          // Fallback — animation still works without analyser
+        }
+
+        // MediaRecorder
+        let mimeType = 'audio/webm;codecs=opus';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+        }
+
+        try {
+          mediaRecorder = new MediaRecorder(
+            micStream,
+            mimeType ? { mimeType } : {}
+          );
+        } catch (e) {
+          mediaRecorder = new MediaRecorder(micStream);
+        }
+
+        mediaRecorder.addEventListener('dataavailable', function (event) {
+          if (
+            event.data &&
+            event.data.size > 0 &&
+            websocket &&
+            websocket.readyState === WebSocket.OPEN
+          ) {
+            websocket.send(event.data);
+          }
+        });
+
+        mediaRecorder.start(250); // ondataavailable every 250ms
+      }
+
+      function stopAudioStreaming () {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+          try { mediaRecorder.stop(); } catch (e) {}
+        }
+        mediaRecorder = null;
+
+        cancelAnimationFrame(rafId);
+
+        if (audioCtx) {
+          try { audioCtx.close(); } catch (e) {}
+          audioCtx = null;
+          analyser  = null;
+        }
+      }
+
+      // ── Transitions ────────────────────────────────────────────────
+      function transitionToSmartHold () {
+        stopAudioStreaming();
+        stopSmartHoldSpeech(); // cancel any prior
+        setState(STATE.SMART_HOLD);
+        startSmartHoldSpeech();
+      }
+
+      function endCall () {
+        stopSmartHoldSpeech();
+        stopAudioStreaming();
+
+        if (websocket) {
+          try { websocket.close(); } catch (e) {}
+          websocket = null;
+        }
+
+        setState(STATE.ENDED);
+      }
+
+      // ── Button handlers ────────────────────────────────────────────
+      btnStart.addEventListener('click', function () {
+        if (currentState !== STATE.READY) return;
+        setState(STATE.CONNECTING);
+        openWebSocket();
+      });
+
+      btnEnd.addEventListener('click', function () {
+        if (currentState !== STATE.ACTIVE) return;
+        endCall();
+      });
+
+      // ── Mic permission flow ────────────────────────────────────────
+      function showMicError (msg) {
+        micErrorEl.textContent = msg;
+        micErrorEl.style.display = 'block';
+      }
+
+      btnGrantMic.addEventListener('click', function () {
+        micErrorEl.style.display = 'none';
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          showMicError('Your browser does not support microphone access. Try Chrome or Safari.');
+          return;
+        }
+
+        navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+          .then(function (stream) {
+            micStream = stream;
+            micOverlay.classList.add('hidden');
+            app.classList.remove('hidden');
+            setState(STATE.READY);
+          })
+          .catch(function (err) {
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+              showMicError('Microphone access was denied. Please allow it in your browser settings and reload.');
+            } else if (err.name === 'NotFoundError') {
+              showMicError('No microphone found on this device.');
+            } else {
+              showMicError('Could not access microphone. Please try again.');
+            }
+          });
+      });
+
+      // ── Init ───────────────────────────────────────────────────────
+      function init () {
+        // Validate required URL params
+        if (!callId || !operatorId) {
+          micOverlay.classList.add('hidden');
+          errorScreen.classList.remove('hidden');
+          errorMessageEl.textContent =
+            'Invalid or missing emergency call link. Please contact your operator.';
+          return;
+        }
+
+        // Show mic overlay — user must grant before entering app
+        // (mic overlay is visible by default in HTML)
+      }
+
+      init();
+
+    }());
+  </script>
+</body>
+</html>

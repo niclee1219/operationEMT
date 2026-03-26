@@ -58,6 +58,7 @@ class DeepgramSTTClient:
         Open a Deepgram streaming connection for a call.
         Spawns a background task to listen for transcript messages.
         """
+        loop = asyncio.get_running_loop()
         try:
             from deepgram import DeepgramClient, LiveOptions, LiveTranscriptionEvents
 
@@ -78,7 +79,7 @@ class DeepgramSTTClient:
                     if not transcript.strip():
                         return
                     is_final = result.is_final
-                    asyncio.get_event_loop().create_task(
+                    loop.create_task(
                         on_transcript_cb(call_id, transcript, is_final)
                     )
                 except Exception as e:

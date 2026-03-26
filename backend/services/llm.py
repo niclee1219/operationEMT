@@ -2,7 +2,6 @@ import asyncio
 import json
 import logging
 import os
-from typing import TypedDict
 
 import anthropic
 from dotenv import load_dotenv
@@ -33,15 +32,26 @@ def _call_api(transcript: str) -> dict:
         messages=[{"role": "user", "content": USER_TEMPLATE.format(text=transcript)}],
         system=SYSTEM_PROMPT,
     )
-    return json.loads(response.content[0].text)
+    raw = response.content[0].text
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        logger.error("JSON parse error from LLM response: %s — raw: %.200s", exc, raw)
+        raise
 
 
 async def extract_patient_data(transcript: str, call_id: str) -> dict | None:
     """Extract patient data from transcript. Returns cached result on failure."""
     try:
-        result = await asyncio.to_thread(_call_api, transcript)
+        result = await asyncio.wait_for(
+            asyncio.to_thread(_call_api, transcript),
+            timeout=30,
+        )
         _cache[call_id] = result
         return result
+    except json.JSONDecodeError:
+        # Already logged inside _call_api; do not populate cache with bad data.
+        return None
     except Exception as e:
         logger.error("LLM extraction failed for call %s: %s", call_id, e)
         return _cache.get(call_id)

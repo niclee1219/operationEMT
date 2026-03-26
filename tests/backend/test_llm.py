@@ -1,6 +1,16 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
+import backend.services.llm as llm_module
 from backend.services.llm import extract_patient_data
+
+
+@pytest.fixture(autouse=True)
+def clear_cache():
+    """Ensure _cache is empty before every test to prevent cross-test pollution."""
+    llm_module._cache.clear()
+    yield
+    llm_module._cache.clear()
+
 
 @pytest.mark.asyncio
 async def test_returns_typed_result():
@@ -32,9 +42,19 @@ async def test_returns_cached_on_api_error():
 
 @pytest.mark.asyncio
 async def test_returns_none_on_first_failure_no_cache():
-    from backend.services.llm import _cache
-    _cache.pop("call-99", None)
     with patch("backend.services.llm._client") as mock_client:
         mock_client.messages.create.side_effect = Exception("API down")
         result = await extract_patient_data("some transcript", "call-99")
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_returns_none_on_malformed_json():
+    """extract_patient_data must return None (not raise) when the API returns non-JSON."""
+    mock_response = MagicMock()
+    mock_response.content[0].text = "Sorry, I cannot help with that."
+    with patch("backend.services.llm._client") as mock_client:
+        mock_client.messages.create.return_value = mock_response
+        result = await extract_patient_data("some transcript", "call-bad-json")
+    assert result is None
+    assert "call-bad-json" not in llm_module._cache

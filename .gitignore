@@ -16,3 +16,4 @@ frontend/dashboard/dist/
 # Misc
 .DS_Store
 *.log
+.env

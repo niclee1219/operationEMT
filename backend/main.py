@@ -59,6 +59,13 @@ async def health():
     return {"status": "ok"}
 
 
+@app.post("/api/reset")
+async def reset_calls():
+    """Clear all call logs — for demo resets."""
+    await call_store.clear_all()
+    return {"status": "ok"}
+
+
 # Serve static files (caller HTML, greeting audio)
 static_dir = os.path.join(os.path.dirname(__file__), "..", "frontend", "caller")
 if os.path.isdir(static_dir):

@@ -42,7 +42,7 @@ async def dashboard_ws(websocket: WebSocket, operator_id: str):
     _hub[operator_id].add(websocket)
     logger.info("Dashboard connected: operator=%s", operator_id)
 
-    # Send state snapshot for all active calls (reconnect recovery)
+    # Send state snapshot for all calls (reconnect recovery)
     for call_state in _store.get_calls_for_operator(operator_id):
         await websocket.send_json({
             "type": "call_started",
@@ -64,11 +64,25 @@ async def dashboard_ws(websocket: WebSocket, operator_id: str):
                 "fields_updated": [],
                 "timestamp": call_state.created_at,
             })
-        if call_state.status == "smart_hold":
+        # Restore correct status — frontend defaults new calls to 'ringing'
+        if call_state.status == "ended":
+            await websocket.send_json({
+                "type": "call_ended",
+                "call_id": call_state.call_id,
+                "timestamp": call_state.created_at,
+            })
+        elif call_state.status == "smart_hold":
             await websocket.send_json({
                 "type": "call_status_changed",
                 "call_id": call_state.call_id,
                 "status": "smart_hold",
+                "timestamp": call_state.created_at,
+            })
+        elif call_state.status == "active":
+            await websocket.send_json({
+                "type": "call_status_changed",
+                "call_id": call_state.call_id,
+                "status": "active",
                 "timestamp": call_state.created_at,
             })
 

@@ -64,3 +64,8 @@ class CallStore:
 
     def get_calls_for_operator(self, operator_id: str) -> list[CallState]:
         return [state for state in self._calls.values() if state.operator_id == operator_id]
+
+    async def clear_all(self) -> None:
+        async with self._global_lock:
+            self._calls.clear()
+            self._locks.clear()

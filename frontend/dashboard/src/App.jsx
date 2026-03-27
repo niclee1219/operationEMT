@@ -200,6 +200,10 @@ function CallHeader({ call, onEndCall }) {
   )
 }
 
+async function apiReset() {
+  await fetch('/api/reset', { method: 'POST' })
+}
+
 export default function App() {
   const [calls, setCalls] = useState(new Map())
   const [selectedCallId, setSelectedCallId] = useState(null)
@@ -334,6 +338,13 @@ export default function App() {
     sendMessage('end_call', { call_id })
   }
 
+  function handleReset() {
+    apiReset()
+    setCalls(new Map())
+    setSelectedCallId(null)
+    setActiveAlert(null)
+  }
+
   const callsArray = Array.from(calls.values())
   const activeCalls = callsArray.filter(c => c.status !== 'ended')
   const pastCalls = callsArray.filter(c => c.status === 'ended')
@@ -343,6 +354,17 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0f172a', color: '#e2e8f0', fontFamily: 'system-ui, sans-serif' }}>
+
+      <div style={{ display: 'flex', alignItems: 'center', padding: '0 16px', height: '36px', background: '#0a1220', borderBottom: '1px solid #1e293b', flexShrink: 0 }}>
+        <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase' }}>OperationEMT</span>
+        <div style={{ flex: 1 }} />
+        <button
+          onClick={handleReset}
+          style={{ padding: '3px 12px', borderRadius: '4px', border: '1px solid #374151', background: 'transparent', color: '#64748b', fontSize: '11px', fontWeight: 600, cursor: 'pointer', letterSpacing: '0.05em' }}
+        >
+          Reset Demo
+        </button>
+      </div>
 
       <EscalationAlert
         alert={activeAlert}

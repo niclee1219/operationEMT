@@ -600,8 +600,8 @@
 
       // ── WebSocket ──────────────────────────────────────────────────
       function openWebSocket () {
-        const host = window.location.hostname || 'localhost';
-        const url  = `ws://${host}:8000/ws/call/${callId}/audio`;
+        const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const url   = `${proto}://${window.location.host}/ws/call/${callId}/audio`;
 
         websocket = new WebSocket(url);
         websocket.binaryType = 'arraybuffer';

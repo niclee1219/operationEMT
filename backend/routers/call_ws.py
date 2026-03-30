@@ -27,6 +27,20 @@ async def force_end_call(call_id: str) -> None:
             pass
 
 
+async def transfer_call(call_id: str) -> None:
+    """Notify caller of transfer, then close their WebSocket."""
+    ws = _caller_ws.get(call_id)
+    if ws:
+        try:
+            await ws.send_json({
+                "type": "call_transferred",
+                "message": "Simulated call transfer activated",
+            })
+            await ws.close(code=1000)
+        except Exception:
+            pass
+
+
 def setup(store: CallStore, stt_client, pipeline, dashboard_router) -> None:
     global _store, _stt, _pipeline, _dashboard_router
     _store = store

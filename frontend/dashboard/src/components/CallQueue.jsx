@@ -65,6 +65,11 @@ function StatusDot({ status }) {
       </span>
     )
   }
+  if (status === 'transferred') {
+    return (
+      <span style={{ fontSize: '9px', color: '#8b5cf6', fontWeight: 700, letterSpacing: '0.04em' }}>TX</span>
+    )
+  }
   // ended / unknown
   return (
     <span style={{

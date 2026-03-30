@@ -131,6 +131,16 @@ async def dashboard_ws(websocket: WebSocket, operator_id: str):
                 # call_ws.finally will handle cleanup and broadcast call_ended.
                 await call_ws_module.force_end_call(call_id)
 
+            elif msg_type == "transfer_call":
+                # Broadcast transfer notification to dashboard before ending.
+                await broadcast_to_operator(operator_id, {
+                    "type": "call_transferred",
+                    "call_id": call_id,
+                    "transferred_to": "Operator 2",
+                })
+                # Notify caller of transfer and close their WebSocket.
+                await call_ws_module.transfer_call(call_id)
+
     except WebSocketDisconnect:
         pass
     except Exception as e:

@@ -393,6 +393,12 @@
         <p class="ended-sub">Thank you. Help is on the way.</p>
       </div>
 
+      <!-- TRANSFERRED state elements -->
+      <div id="transferred-msg" class="hidden">
+        <p class="ended-main" style="color:#2563eb;">Simulated call transfer activated</p>
+        <p class="ended-sub">You are being connected to another operator.</p>
+      </div>
+
       <!-- Status text -->
       <p id="status-text"></p>
 
@@ -410,6 +416,7 @@
         ACTIVE: 'ACTIVE',
         SMART_HOLD: 'SMART_HOLD',
         ENDED: 'ENDED',
+        TRANSFERRED: 'TRANSFERRED',
       });
 
       let currentState = null;
@@ -430,6 +437,7 @@
       const smartHoldPulse   = document.getElementById('smart-hold-pulse');
       const smartHoldMsg     = document.getElementById('smart-hold-msg');
       const endedMsg         = document.getElementById('ended-msg');
+      const transferredMsg   = document.getElementById('transferred-msg');
       const statusText       = document.getElementById('status-text');
 
       // ── URL params (both optional — auto-generated if absent) ──────
@@ -480,6 +488,7 @@
         smartHoldPulse.classList.add('hidden');
         smartHoldMsg.classList.add('hidden');
         endedMsg.classList.add('hidden');
+        transferredMsg.classList.add('hidden');
         headerTitle.textContent = '995 Emergency';
         statusText.textContent = '';
 
@@ -519,6 +528,11 @@
 
           case STATE.ENDED:
             endedMsg.classList.remove('hidden');
+            statusText.textContent = '';
+            break;
+
+          case STATE.TRANSFERRED:
+            transferredMsg.classList.remove('hidden');
             statusText.textContent = '';
             break;
         }
@@ -629,11 +643,10 @@
           let msg;
           try { msg = JSON.parse(event.data); } catch (e) { return; }
 
-          if (
-            msg.type === 'call_status_changed' &&
-            msg.status === 'smart_hold'
-          ) {
+          if (msg.type === 'call_status_changed' && msg.status === 'smart_hold') {
             transitionToSmartHold();
+          } else if (msg.type === 'call_transferred') {
+            transitionToTransferred();
           }
         });
 
@@ -641,6 +654,7 @@
           if (currentState === STATE.ACTIVE || currentState === STATE.SMART_HOLD) {
             endCall();
           }
+          // STATE.TRANSFERRED: keep the transfer screen, don't call endCall()
         });
 
         websocket.addEventListener('error', function () {
@@ -719,6 +733,16 @@
         stopSmartHoldSpeech(); // cancel any prior
         setState(STATE.SMART_HOLD);
         startSmartHoldSpeech();
+      }
+
+      function transitionToTransferred () {
+        stopSmartHoldSpeech();
+        stopAudioStreaming();
+        if (websocket) {
+          try { websocket.close(); } catch (e) {}
+          websocket = null;
+        }
+        setState(STATE.TRANSFERRED);
       }
 
       function endCall () {

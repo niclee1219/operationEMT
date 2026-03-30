@@ -87,7 +87,7 @@ function makeEmptyCall(call_id) {
 }
 
 // ─── Incoming call banner ────────────────────────────────────────────────────
-function IncomingBanner({ ringingCalls, hasActiveCall, onAnswer }) {
+function IncomingBanner({ ringingCalls, onAnswer }) {
   if (ringingCalls.length === 0) return null
   return (
     <div style={{
@@ -111,21 +111,73 @@ function IncomingBanner({ ringingCalls, hasActiveCall, onAnswer }) {
       </div>
       <button
         onClick={() => onAnswer(ringingCalls[0].call_id)}
-        disabled={hasActiveCall}
         style={{
           padding: '7px 18px',
           borderRadius: '6px',
           border: 'none',
-          background: hasActiveCall ? '#374151' : '#16a34a',
-          color: hasActiveCall ? '#6b7280' : '#fff',
+          background: '#16a34a',
+          color: '#fff',
           fontWeight: 700,
           fontSize: '13px',
-          cursor: hasActiveCall ? 'not-allowed' : 'pointer',
+          cursor: 'pointer',
           letterSpacing: '0.05em',
         }}
       >
-        {hasActiveCall ? 'Finish Active Call' : 'Answer'}
+        Answer
       </button>
+    </div>
+  )
+}
+
+// ─── Pickup / Transfer modal ─────────────────────────────────────────────────
+function PickupModal({ activeCall, onPickup, onTransfer, onDismiss }) {
+  const label = activeCall.patient?.name || activeCall.condition || activeCall.call_id
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.72)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999,
+    }}>
+      <div style={{
+        background: '#1e293b', border: '1px solid #334155', borderRadius: '12px',
+        padding: '24px', maxWidth: '360px', width: '100%', margin: '0 16px',
+      }}>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: '#e2e8f0', marginBottom: '6px' }}>
+          Active call in progress
+        </div>
+        <div style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '20px', lineHeight: 1.5 }}>
+          <span style={{ color: '#cbd5e1' }}>{label}</span> is currently active.
+          What would you like to do?
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <button onClick={onPickup} style={{
+            padding: '11px 16px', borderRadius: '7px', border: 'none',
+            background: '#16a34a', color: '#fff', fontWeight: 700, fontSize: '13px',
+            cursor: 'pointer', textAlign: 'left',
+          }}>
+            Pickup New Call
+            <span style={{ display: 'block', fontSize: '11px', fontWeight: 400, opacity: 0.8, marginTop: '2px' }}>
+              Put current call on AI Hold and answer
+            </span>
+          </button>
+          <button onClick={onTransfer} style={{
+            padding: '11px 16px', borderRadius: '7px', border: 'none',
+            background: '#2563eb', color: '#fff', fontWeight: 700, fontSize: '13px',
+            cursor: 'pointer', textAlign: 'left',
+          }}>
+            Transfer to Operator
+            <span style={{ display: 'block', fontSize: '11px', fontWeight: 400, opacity: 0.8, marginTop: '2px' }}>
+              Transfer current call to Operator 2 and answer
+            </span>
+          </button>
+          <button onClick={onDismiss} style={{
+            padding: '8px 16px', borderRadius: '7px', border: '1px solid #334155',
+            background: 'transparent', color: '#64748b', fontWeight: 600,
+            fontSize: '12px', cursor: 'pointer',
+          }}>
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -155,6 +207,7 @@ function CallHeader({ call, onEndCall }) {
     ringing: '🔔 Ringing',
     active: '🟢 Live',
     smart_hold: '🔵 AI Hold',
+    transferred: '🔀 Transferred to Operator 2',
     ended: '⚫ Ended',
   }[call.status] ?? call.status
 
@@ -208,6 +261,7 @@ export default function App() {
   const [calls, setCalls] = useState(new Map())
   const [selectedCallId, setSelectedCallId] = useState(null)
   const [activeAlert, setActiveAlert] = useState(null)
+  const [pendingAnswerCallId, setPendingAnswerCallId] = useState(null)
   const aiFieldTimers = useRef({})
 
   useEffect(() => {
@@ -312,10 +366,21 @@ export default function App() {
         return next
       })
 
+    } else if (type === 'call_transferred') {
+      setCalls(prev => {
+        const call = prev.get(call_id)
+        if (!call) return prev
+        const next = new Map(prev)
+        next.set(call_id, { ...call, status: 'transferred', pendingText: '' })
+        return next
+      })
+
     } else if (type === 'call_ended') {
       setCalls(prev => {
         const call = prev.get(call_id)
         if (!call) return prev
+        // Preserve 'transferred' status — call_ended fires after transfer close
+        if (call.status === 'transferred') return prev
         const next = new Map(prev)
         next.set(call_id, { ...call, status: 'ended', pendingText: '' })
         return next
@@ -323,7 +388,7 @@ export default function App() {
     }
   }, []))
 
-  function handleAnswer(call_id) {
+  function answerCall(call_id) {
     setCalls(prev => {
       const call = prev.get(call_id)
       if (!call) return prev
@@ -332,6 +397,37 @@ export default function App() {
       return next
     })
     setSelectedCallId(call_id)
+  }
+
+  function handleAnswer(call_id) {
+    if (hasBlockingCall) {
+      setPendingAnswerCallId(call_id)
+    } else {
+      answerCall(call_id)
+    }
+  }
+
+  function handlePickup() {
+    if (blockingCall) {
+      sendMessage('set_smart_hold', { call_id: blockingCall.call_id })
+    }
+    answerCall(pendingAnswerCallId)
+    setPendingAnswerCallId(null)
+  }
+
+  function handleTransferAndAnswer() {
+    if (blockingCall) {
+      sendMessage('transfer_call', { call_id: blockingCall.call_id })
+      setCalls(prev => {
+        const call = prev.get(blockingCall.call_id)
+        if (!call) return prev
+        const next = new Map(prev)
+        next.set(blockingCall.call_id, { ...call, status: 'transferred', pendingText: '' })
+        return next
+      })
+    }
+    answerCall(pendingAnswerCallId)
+    setPendingAnswerCallId(null)
   }
 
   function handleEndCall(call_id) {
@@ -346,10 +442,12 @@ export default function App() {
   }
 
   const callsArray = Array.from(calls.values())
-  const activeCalls = callsArray.filter(c => c.status !== 'ended')
-  const pastCalls = callsArray.filter(c => c.status === 'ended')
+  const activeCalls = callsArray.filter(c => c.status !== 'ended' && c.status !== 'transferred')
+  const pastCalls = callsArray.filter(c => c.status === 'ended' || c.status === 'transferred')
   const ringingCalls = activeCalls.filter(c => c.status === 'ringing')
-  const hasActiveCall = activeCalls.some(c => c.status === 'active' || c.status === 'smart_hold')
+  // Only a truly active (non-smart_hold) call blocks answering new calls
+  const hasBlockingCall = activeCalls.some(c => c.status === 'active')
+  const blockingCall = activeCalls.find(c => c.status === 'active') ?? null
   const selectedCall = calls.get(selectedCallId)
 
   return (
@@ -377,9 +475,17 @@ export default function App() {
 
       <IncomingBanner
         ringingCalls={ringingCalls}
-        hasActiveCall={hasActiveCall}
         onAnswer={handleAnswer}
       />
+
+      {pendingAnswerCallId && blockingCall && (
+        <PickupModal
+          activeCall={blockingCall}
+          onPickup={handlePickup}
+          onTransfer={handleTransferAndAnswer}
+          onDismiss={() => setPendingAnswerCallId(null)}
+        />
+      )}
 
       {callsArray.length === 0 ? (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}>

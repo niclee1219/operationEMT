@@ -66,7 +66,7 @@ class DeepgramSTTClient:
             # For WebM/Opus (browser MediaRecorder), Deepgram auto-detects
             # the container — do not specify encoding for containerised formats.
             options = LiveOptions(
-                model="nova-2",
+                model="nova-3-medical",
                 interim_results=True,
                 language="en",
             )
